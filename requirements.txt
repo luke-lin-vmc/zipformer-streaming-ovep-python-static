@@ -1,0 +1,9 @@
+kaldi_native_fbank
+librosa
+sounddevice
+torch==2.8.0
+torchaudio==2.8.0
+--find-links https://k2-fsa.github.io/k2/cpu.html
+k2==1.24.4.dev20250807+cpu.torch2.8.0
+onnxruntime-openvino~=1.23.0
+openvino~=2025.3.0
