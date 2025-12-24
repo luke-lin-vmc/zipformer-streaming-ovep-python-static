@@ -7,3 +7,4 @@ torchaudio==2.8.0
 k2==1.24.4.dev20250807+cpu.torch2.8.0
 onnxruntime-openvino~=1.23.0
 openvino~=2025.3.0
+onnx
