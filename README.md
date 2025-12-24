@@ -59,28 +59,28 @@ options:
   --device DEVICE       Execution device. Use 'CPU', 'GPU', 'NPU' for OpenVINO. If not specified, default
                         CPUExecutionProvider will be used. (default: None)
   --use-mic             If set, capture audio from microphone instead of reading a sound file. (default: False)
-  --loopback            In mic mode, audio will be loop backed from mic to speaker. In file mode, the sound file will
+  --loopback            In mic mode, audio will be looped back from mic to speaker. In file mode, the sound file will
                         be played synchronously while being processed. (default: False)
 ```
 
 Run on CPU, input from audio file
 ```
-python onnx_pretrained-streaming.py \
---encoder-model-filename encoder-epoch-75-avg-11-chunk-16-left-128_static.onnx \
---decoder-model-filename decoder-epoch-75-avg-11-chunk-16-left-128_static.onnx \
---joiner-model-filename joiner-epoch-75-avg-11-chunk-16-left-128_static.onnx \
---tokens tokens.txt \
---device CPU
+python onnx_pretrained-streaming.py ^
+--encoder-model-filename encoder-epoch-75-avg-11-chunk-16-left-128_static.onnx ^
+--decoder-model-filename decoder-epoch-75-avg-11-chunk-16-left-128_static.onnx ^
+--joiner-model-filename joiner-epoch-75-avg-11-chunk-16-left-128_static.onnx ^
+--tokens tokens.txt ^
+--device CPU ^
 zh.wav
 ```
 Run on CPU, input from microphone
 ```
-python onnx_pretrained-streaming.py \
---encoder-model-filename encoder-epoch-75-avg-11-chunk-16-left-128_static.onnx \
---decoder-model-filename decoder-epoch-75-avg-11-chunk-16-left-128_static.onnx \
---joiner-model-filename joiner-epoch-75-avg-11-chunk-16-left-128_static.onnx \
---tokens tokens.txt \
---device CPU
+python onnx_pretrained-streaming.py ^
+--encoder-model-filename encoder-epoch-75-avg-11-chunk-16-left-128_static.onnx ^
+--decoder-model-filename decoder-epoch-75-avg-11-chunk-16-left-128_static.onnx ^
+--joiner-model-filename joiner-epoch-75-avg-11-chunk-16-left-128_static.onnx ^
+--tokens tokens.txt ^
+--device CPU ^
 --use-mic
 ```
 The ```--device``` can be "CPU", "GPU", and "NPU". If ```--device``` is not specified, CPUExecutionProvider will be used by default

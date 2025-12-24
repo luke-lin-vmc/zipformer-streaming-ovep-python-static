@@ -133,7 +133,7 @@ def get_parser():
     parser.add_argument(
         "--loopback",
         action="store_true",
-        help="In mic mode, audio will be loop backed from mic to speaker. In file mode, the sound file will be played synchronously while being processed.",
+        help="In mic mode, audio will be looped back from mic to speaker. In file mode, the sound file will be played synchronously while being processed.",
     )
 
     parser.add_argument(
