@@ -135,7 +135,15 @@ C:\Python\python313_venv\Lib\site-packages\torchaudio\_backend\utils.py:213: Use
 [Full log](https://github.com/luke-lin-vmc/zipformer-streaming-ovep-python-static/blob/main/log_full.txt) (from scratch) is provided for reference
 
 ## Known issues
-If the following warning appears when running the pipeline thru OVEP for the 1st time
+1. If upgrading onnxruntime-openvino~=1.24.1, CPU results shows repeated words 
+```
+2026-03-10 14:19:35,738 INFO [onnx_pretrained-streaming.py:619] Partial:
+2026-03-10 14:19:35,776 INFO [onnx_pretrained-streaming.py:619] Partial: AFTER
+2026-03-10 14:19:36,735 INFO [onnx_pretrained-streaming.py:619] Partial: AFTERAFTER AFTEREAREAR EARLY
+2026-03-10 14:19:36,773 INFO [onnx_pretrained-streaming.py:619] Partial: AFTERAFTER AFTEREAREAR EARLY EARLY EARLY EARLY EARLY EARLY EARLY EARLY
+```
+
+2. If the following warning appears when running the pipeline thru OVEP for the 1st time
 ```
 C:\Users\...\site-packages\onnxruntime\capi\onnxruntime_inference_collection.py:123:
 User Warning: Specified provider 'OpenVINOExecutionProvider' is not in available provider names.
