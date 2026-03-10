@@ -79,7 +79,7 @@ import onnxruntime as ort
 import torch
 import torchaudio
 import kaldi_native_fbank as knf
-import sounddevice as sd  # NEW
+import sounddevice as sd
 import time
 
 # Add openvino libs to path as onnxruntime_providers_openvino.dll depends on openvino.dll. See https://github.com/intel/onnxruntime/releases/
@@ -125,23 +125,16 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--use-mic",
-        action="store_true",
-        help="If set, capture audio from microphone instead of reading a sound file.",
-    )
-
-    parser.add_argument(
         "--loopback",
         action="store_true",
-        help="In mic mode, audio will be looped back from mic to speaker. In file mode, the sound file will be played synchronously while being processed.",
+        help="The sound file will be played synchronously while being processed.",
     )
 
     parser.add_argument(
         "sound_file",
         type=str,
         nargs="?",
-        default="",
-        help="The input sound file to transcribe when not using --use-mic. "
+        help="The input sound file to transcribe. "
         "Supported formats are those supported by torchaudio.load(). "
         "For example, wav and flac are supported. "
         "The sample rate has to be 16kHz.",
@@ -534,7 +527,6 @@ def main():
         joiner_model_filename=args.joiner_model_filename,
     )
 
-
     logging.info("Constructing Fbank computer")
     online_fbank = create_streaming_feature_extractor()
 
@@ -566,169 +558,74 @@ def main():
         print(out_dev_info)
         out_stream.start()
 
-    if args.use_mic:
-        # ========== MICROPHONE STREAMING MODE ==========
+    assert args.sound_file, "sound_file is required"
+    logging.info(f"Reading sound file: {args.sound_file}")
+    waves = read_sound_files(
+        filenames=[args.sound_file],
+        expected_sample_rate=sample_rate,
+    )[0]
 
-        # Get default input device info, samplerate, and channel count
-        in_dev_info = sd.query_devices(kind='input')
-        input_dev_index = in_dev_info['index']
-        print("[input device]")
-        print(in_dev_info)
+    tail_padding = torch.zeros(int(0.3 * sample_rate), dtype=torch.float32)
+    wave_samples = torch.cat([waves, tail_padding])
 
-        try:
-            # check the if recordinng settings are supported
-            sd.check_input_settings(
-                device=input_dev_index,
-                channels=1,
-                dtype="float32",
-                samplerate=sample_rate,
+    start = 0
+
+    last_num_tokens = 0
+
+    last_time = time.time();
+
+    while start < wave_samples.numel():
+        end = min(start + chunk, wave_samples.numel())
+        samples = wave_samples[start:end]
+        start += chunk
+
+        if args.loopback:
+            out_stream.write(samples);
+            now_time = time.time()
+            required_delay = chunk_sec - (now_time - last_time)
+            if required_delay > 0:
+                time.sleep(required_delay)   # simple delay to simulate a real speech
+            last_time = now_time
+
+        online_fbank.accept_waveform(
+            sampling_rate=sample_rate,
+            waveform=samples.tolist(),   # https://github.com/csukuangfj/kaldi-native-fbank/blob/master/kaldi-native-fbank/python/tests/test_online_fbank.py
+        )
+
+        while online_fbank.num_frames_ready - num_processed_frames >= segment:
+            frames = []
+            for i in range(segment):
+                f = online_fbank.get_frame(num_processed_frames + i)  # NumPy array
+                f = torch.from_numpy(f).unsqueeze(0).to(torch.float32)
+                frames.append(f)
+            num_processed_frames += offset
+            frames = torch.cat(frames, dim=0)
+            frames = frames.unsqueeze(0)
+            encoder_out = model.run_encoder(frames)
+            hyp, decoder_out = greedy_search(
+                model,
+                encoder_out,
+                context_size,
+                decoder_out,
+                hyp,
             )
 
-            print(f"The default input device supports 1 channel and float32 recording at {sample_rate} Hz.")
+            # print partial decoding if new tokens appear
+            if hyp is not None and len(hyp) > last_num_tokens:
+                text = ""
+                for i in hyp[context_size:]:
+                    text += token_table[i]
+                text = text.replace("▁", " ").strip()
+                logging.info(f"Partial: {text}")
+                last_num_tokens = len(hyp)
 
-        except sd.PortAudioError as e:
-            print(f"Failure! The default input device DOES NOT support the desired settings. Error Details: {e}")
+    text = ""
+    for i in hyp[context_size:]:
+        text += token_table[i]
+    text = text.replace("▁", " ").strip()
 
-        except Exception as e:
-            print(f"\nAn unexpected error occurred: {e}")
-
-        logging.info(f"Using input device: {in_dev_info['name']}")
-        logging.info("Speak into the mic; press Ctrl+C to stop.")
-
-        last_num_tokens = 0
-
-        with sd.InputStream(
-            samplerate=sample_rate,
-            channels=1,
-            dtype="float32",
-            blocksize=chunk,  # need to set this for blocking read/write
-        ) as stream:
-            try:
-                while True:
-                    # read chunk_sec of audio from the mic
-                    samples, overflowed = stream.read(chunk)
-                    if overflowed:
-                        logging.warning("Input overflowed while reading from microphone")
-
-                    if args.loopback:
-                        out_stream.write(samples);
-
-                    # feed into online_fbank
-                    online_fbank.accept_waveform(
-                        sampling_rate=sample_rate,
-                        waveform=samples.squeeze(),
-                    )
-
-                    while online_fbank.num_frames_ready - num_processed_frames >= segment:
-                        frames = []
-                        for i in range(segment):
-                            f = online_fbank.get_frame(num_processed_frames + i)  # NumPy array
-                            f = torch.from_numpy(f).unsqueeze(0).to(torch.float32)
-                            frames.append(f)
-                        num_processed_frames += offset
-                        frames = torch.cat(frames, dim=0)
-                        frames = frames.unsqueeze(0)
-
-                        encoder_out = model.run_encoder(frames)
-                        hyp, decoder_out = greedy_search(
-                            model,
-                            encoder_out,
-                            context_size,
-                            decoder_out,
-                            hyp,
-                        )
-
-                        # print partial decoding if new tokens appear
-                        if hyp is not None and len(hyp) > last_num_tokens:
-                            text = ""
-                            for i in hyp[context_size:]:
-                                text += token_table[i]
-                            text = text.replace("▁", " ").strip()
-                            logging.info(f"Partial: {text}")
-                            last_num_tokens = len(hyp)
-
-            except KeyboardInterrupt:
-                logging.info("Stopping microphone decoding...")
-
-        if hyp is not None:
-            text = ""
-            for i in hyp[context_size:]:
-                text += token_table[i]
-            text = text.replace("▁", " ").strip()
-            logging.info("Final result from microphone:")
-            logging.info(text)
-
-    else:
-        # ========== ORIGINAL WAV-FILE MODE ==========
-        assert args.sound_file, "sound_file is required when --use-mic is not set"
-
-        logging.info(f"Reading sound file: {args.sound_file}")
-        waves = read_sound_files(
-            filenames=[args.sound_file],
-            expected_sample_rate=sample_rate,
-        )[0]
-
-        tail_padding = torch.zeros(int(0.3 * sample_rate), dtype=torch.float32)
-        wave_samples = torch.cat([waves, tail_padding])
-
-        start = 0
-
-        last_num_tokens = 0
-
-        last_time = time.time();
-
-        while start < wave_samples.numel():
-            end = min(start + chunk, wave_samples.numel())
-            samples = wave_samples[start:end]
-            start += chunk
-
-            if args.loopback:
-                out_stream.write(samples);
-                now_time = time.time()
-                required_delay = chunk_sec - (now_time - last_time)
-                if required_delay > 0:
-                    time.sleep(required_delay)   # simple delay to simulate a real speech
-                last_time = now_time
-
-            online_fbank.accept_waveform(
-                sampling_rate=sample_rate,
-                waveform=samples.tolist(),   # https://github.com/csukuangfj/kaldi-native-fbank/blob/master/kaldi-native-fbank/python/tests/test_online_fbank.py
-            )
-
-            while online_fbank.num_frames_ready - num_processed_frames >= segment:
-                frames = []
-                for i in range(segment):
-                    f = online_fbank.get_frame(num_processed_frames + i)  # NumPy array
-                    f = torch.from_numpy(f).unsqueeze(0).to(torch.float32)
-                    frames.append(f)
-                num_processed_frames += offset
-                frames = torch.cat(frames, dim=0)
-                frames = frames.unsqueeze(0)
-                encoder_out = model.run_encoder(frames)
-                hyp, decoder_out = greedy_search(
-                    model,
-                    encoder_out,
-                    context_size,
-                    decoder_out,
-                    hyp,
-                )
-
-                # print partial decoding if new tokens appear
-                if hyp is not None and len(hyp) > last_num_tokens:
-                    text = ""
-                    for i in hyp[context_size:]:
-                        text += token_table[i]
-                    text = text.replace("▁", " ").strip()
-                    logging.info(f"Partial: {text}")
-                    last_num_tokens = len(hyp)
-
-        text = ""
-        for i in hyp[context_size:]:
-            text += token_table[i]
-        text = text.replace("▁", " ").strip()
-
-        logging.info(args.sound_file)
-        logging.info(text)
+    logging.info(args.sound_file)
+    logging.info(text)
 
     logging.info("Decoding Done")
 
