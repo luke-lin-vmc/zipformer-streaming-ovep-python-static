@@ -75,8 +75,8 @@ The ```--device``` can be "CPU", "GPU", and "NPU". If ```--device``` is not spec
 :warning:[NOTE] The 1st time running on NPU will take long time (about 3 minutes) on model compiling. [OpenVINO Model Caching](https://docs.openvino.ai/2025/openvino-workflow/running-inference/optimize-inference/optimizing-latency/model-caching-overview.html) has been enabled for NPU to ease the issue. This feature will cache compiled models. Although the 1st run still takes long, but later runs can be faster as model compilation has been skipped.
 ## Tested devices
 The pipeline has been verified working on a ```Intel(R) Core(TM) Ultra 5 238V (Lunar Lake)``` system, with
-* ```iGPU: Intel(R) Arc(TM) 130V GPU, driver 32.0.101.8331 (11/26/2025)```
-* ```NPU: Intel(R) AI Boost, driver 32.0.100.4514 (12/17/2025)```
+* ```iGPU: Intel(R) Arc(TM) 130V GPU (16GB), driver 32.0.101.8247 (10/22/2025)```
+* ```NPU: Intel(R) AI Boost, driver 32.0.100.4621 (2/25/2026)```
 ### Result
 | Sample             | CPU | GPU | NPU |
 |--------------------|-----|-----|-----|
@@ -135,7 +135,7 @@ C:\Python\python313_venv\Lib\site-packages\torchaudio\_backend\utils.py:213: Use
 [Full log](https://github.com/luke-lin-vmc/zipformer-streaming-ovep-python-static/blob/main/log_full.txt) (from scratch) is provided for reference
 
 ## Known issues
-1. If upgrading onnxruntime-openvino~=1.24.1, CPU results shows repeated words 
+1. If upgrading openvino to 1.24.1, running on CPU and NPU shows below repeated words. This will be fixed in openvino 2026.0.0
 ```
 2026-03-10 14:19:35,738 INFO [onnx_pretrained-streaming.py:619] Partial:
 2026-03-10 14:19:35,776 INFO [onnx_pretrained-streaming.py:619] Partial: AFTER
