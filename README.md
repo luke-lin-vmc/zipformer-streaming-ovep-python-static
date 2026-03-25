@@ -135,7 +135,7 @@ C:\Python\python313_venv\Lib\site-packages\torchaudio\_backend\utils.py:213: Use
 [Full log](https://github.com/luke-lin-vmc/zipformer-streaming-ovep-python-static/blob/main/log_full.txt) (from scratch) is provided for reference
 
 ## Known issues
-1. If upgrading openvino to 1.24.1, running on CPU and NPU shows below repeated words. This will be fixed in openvino 2026.0.0
+1. If upgrading openvino to 2025.4.1, running on CPU and NPU shows below repeated words. This will be fixed in openvino 2026.0.0
 ```
 2026-03-10 14:19:35,738 INFO [onnx_pretrained-streaming.py:619] Partial:
 2026-03-10 14:19:35,776 INFO [onnx_pretrained-streaming.py:619] Partial: AFTER
